@@ -7,7 +7,7 @@ import { Router } from "express";
 import { WalletController } from "./wallet.controller";
 import { AuthMiddleware } from "../../middleware/auth.middleware";
 
-const router = Router();
+const router: Router = Router();
 const controller = new WalletController();
 const authMiddleware = new AuthMiddleware();
 

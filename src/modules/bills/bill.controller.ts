@@ -131,8 +131,7 @@ export const getCablePlans = async (req: Request, res: Response, next: NextFunct
 
 export const getElectricityPlans = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { providerId } = req.query;
-    const plans = await billService.getElectricityPlans(providerId as string);
+    const plans = await billService.getElectricityPlans();
     res.status(200).json({ status: "success", data: plans });
   } catch (error) {
     next(error);

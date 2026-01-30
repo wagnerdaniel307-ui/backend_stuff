@@ -358,7 +358,7 @@ export class BillService {
     return this.peyflexService.getCablePlans(providerId);
   }
 
-  async getElectricityPlans(providerId?: string) {
-    return this.peyflexService.getElectricityPlans(providerId);
+  async getElectricityPlans() {
+    return this.peyflexService.getElectricityPlans();
   }
 }
