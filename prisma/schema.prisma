@@ -1,0 +1,249 @@
+// ============================================================================
+// VTU BACKEND - COMPLETE PRISMA SCHEMA
+// Location: prisma/schema.prisma
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  AGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  PENDING_VERIFICATION
+  BANNED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  PURCHASE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// ============================================================================
+// USER MODEL
+// ============================================================================
+
+model User {
+  id                  String      @id @default(cuid())
+  email               String      @unique
+  phone               String      @unique
+  username            String?     @unique
+  password            String
+  
+  // Personal Information
+  firstName           String
+  lastName            String
+  middleName          String?
+  dateOfBirth         DateTime?
+  gender              String?
+  bvn                 String?
+  
+  // Address
+  address             String?
+  city                String?
+  state               String?
+  country             String      @default("Nigeria")
+  
+  // Account Settings
+  role                UserRole    @default(USER)
+  status              UserStatus  @default(PENDING_VERIFICATION)
+  
+  // Verification
+  emailVerified       Boolean     @default(false)
+  emailVerifiedAt     DateTime?
+  phoneVerified       Boolean     @default(false)
+  phoneVerifiedAt     DateTime?
+  
+  emailVerificationOtp    String?
+  emailVerificationExpiry DateTime?
+  phoneVerificationOtp    String?
+  phoneVerificationExpiry DateTime?
+  
+  // Password Reset (added missing fields)
+  passwordResetToken      String?   @unique
+  passwordResetExpiry     DateTime?
+  
+  // Two-Factor Authentication
+  twoFactorEnabled    Boolean     @default(false)
+  twoFactorSecret     String?
+  
+  // Profile
+  avatarUrl           String?
+  avatarThumbnail     String?
+  
+  // Security & Tracking
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  passwordChangedAt   DateTime?
+  failedLoginAttempts Int         @default(0)
+  accountLockedUntil  DateTime?
+  
+  // Referral
+  referralCode        String      @unique
+  referredBy          String?
+  
+  // Timestamps
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  deletedAt           DateTime?
+  
+  // Relations
+  refreshTokens       RefreshToken[]
+  wallet              Wallet?
+  
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@index([referralCode])
+  @@index([passwordResetToken])
+  @@map("users")
+}
+
+// ============================================================================
+// FINANCIAL MODELS
+// ============================================================================
+
+model Wallet {
+  id                String      @id @default(cuid())
+  userId            String      @unique
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  balance           Decimal     @default(0.00) @db.Decimal(20, 2)
+  currency          String      @default("NGN")
+  
+  // Security
+  pin               String?     // Hashed wallet PIN
+  
+  // Relations
+  transactions      Transaction[]
+  virtualAccounts   VirtualAccount[]
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@map("wallets")
+}
+
+model VirtualAccount {
+  id                String      @id @default(cuid())
+  walletId          String
+  wallet            Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  
+  bankName          String
+  accountNumber     String      @unique
+  accountName       String
+  bankCode          String?
+  
+  provider          String      // e.g., "monnify", "flutterwave"
+  reference         String      // Reference from provider (linked to the reservation)
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@map("virtual_accounts")
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  walletId          String
+  wallet            Wallet            @relation(fields: [walletId], references: [id])
+  
+  amount            Decimal           @db.Decimal(20, 2)
+  type              TransactionType
+  status            TransactionStatus @default(PENDING)
+  
+  reference         String            @unique // Unique internal/provider reference
+  description       String?
+  
+  metadata          Json?             // Store flexible data (e.g., airtime details)
+  
+  balanceBefore     Decimal           @db.Decimal(20, 2)
+  balanceAfter      Decimal           @db.Decimal(20, 2)
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([walletId])
+  @@index([status])
+  @@map("transactions")
+}
+
+// ============================================================================
+// REFRESH TOKEN MODEL
+// ============================================================================
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Expiration
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  
+  // Device Tracking
+  deviceInfo  String?
+  ipAddress   String?
+  userAgent   String?
+  
+  // Session Management
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// PASSWORD RESET MODEL (Optional - for audit trail)
+// ============================================================================
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique
+  
+  // Expiration & Usage
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
+  
+  // Security Tracking
+  ipAddress String?
+  userAgent String?
+  
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("password_resets")
+}
