@@ -2,6 +2,22 @@
 
 This guide outlines how to integrate Peyflex and Topupmate bill payment features.
 
+---
+
+## 🔐 NEW: Transaction PIN Management
+All purchases now **require** a 4-digit transaction PIN. Users must set this up before their first purchase.
+
+### 1. Set Transaction PIN
+Use this for first-time setup or if no PIN has been set yet.
+- **Endpoint**: `POST /api/v1/wallets/pin/set`
+- **Payload**: `{"pin": "1234"}`
+
+### 2. Change Transaction PIN
+- **Endpoint**: `POST /api/v1/wallets/pin/change`
+- **Payload**: `{"currentPin": "1234", "newPin": "5678"}`
+
+---
+
 ## Base URL
 All endpoints are prefixed with `/api/v1/bills`.
 
@@ -9,10 +25,8 @@ All endpoints are prefixed with `/api/v1/bills`.
 All purchase endpoints require a valid JWT Bearer token in the `Authorization` header.
 `Authorization: Bearer <your_access_token>`
 
-## Idempotency (Preventing Double Charges)
-All `POST` purchase endpoints support an optional `requestId` field. 
-- **Recommendation**: Generate a unique GUID/UUID on the frontend for every new transaction attempt.
-- **Benefit**: If a network error occurs, retrying with the same `requestId` will NOT debit the user's wallet again.
+## Mandatory "pin" Field
+Every `POST` purchase endpoint described below now REQUIRES a `pin` field in the request body.
 
 ---
 
@@ -22,32 +36,30 @@ All `POST` purchase endpoints support an optional `requestId` field.
 1. **Fetch Networks**: `GET /api/v1/bills/data-networks`
 2. **Fetch Plans**: `GET /api/v1/bills/data-plans?networkId=mtn_sme_data`
 3. **Purchase**: `POST /api/v1/bills/data`
-   - Payload: `{"mobile_number": "...", "network": "...", "plan_code": "...", "amount": 280, "planName": "..."}`
+   - Payload: `{"mobile_number": "...", "network": "...", "plan_code": "...", "amount": 280, "planName": "...", "pin": "1234"}`
 
 ### Airtime
 - **Purchase**: `POST /api/v1/bills/airtime`
-  - Payload: `{"mobile_number": "...", "network": "1", "amount": 100}`
+  - Payload: `{"mobile_number": "...", "network": "1", "amount": 100, "pin": "1234"}`
 
 ---
 
 ## 2. Electricity & Cable TV (Peyflex)
 
-- **Verify Customer**: `POST /api/v1/bills/verify-customer`
+- **Verify Customer**: `POST /api/v1/bills/verify-customer` (No PIN required for verification)
   - Payload (Electricity): `{"type": "electricity", "meter_number": "...", "provider": "AEDC"}`
-  - Payload (Cable): `{"type": "cable", "iuc_number": "...", "provider": "DSTV"}`
 
 - **Purchase Electricity**: `POST /api/v1/bills/electricity`
-  - Payload: `{"meter_number": "...", "provider": "...", "meter_type": "Prepaid", "amount": 2000}`
+  - Payload: `{"meter_number": "...", "provider": "...", "meter_type": "Prepaid", "amount": 2000, "pin": "1234"}`
 
 - **Purchase Cable**: `POST /api/v1/bills/cable-tv`
-  - Payload: `{"provider": "...", "iuc_number": "...", "plan_code": "...", "amount": 10500, "plan_name": "..."}`
+  - Payload: `{"provider": "...", "iuc_number": "...", "plan_code": "...", "amount": 10500, "plan_name": "...", "pin": "1234"}`
 
 ---
 
 ## 3. Exam & Recharge Pins (Topupmate)
 
 ### Fetch Services (For Dropdowns)
-Use this to get provider IDs, plan IDs, and pricing for Pins.
 - **Endpoint**: `GET /api/v1/bills/topupmate/services?service=<service_name>`
 - **Service Names**: `exampin`, `recharge-card`, `data-category`, `datapin`
 
@@ -56,9 +68,10 @@ Use this to get provider IDs, plan IDs, and pricing for Pins.
 - **Payload**:
   ```json
   {
-    "provider": "1", // WAEC
+    "provider": "1",
     "quantity": 2,
-    "amount": 4000, // Total amount to debit
+    "amount": 4000,
+    "pin": "1234",
     "requestId": "unique-id"
   }
   ```
@@ -68,25 +81,12 @@ Use this to get provider IDs, plan IDs, and pricing for Pins.
 - **Payload**:
   ```json
   {
-    "network": "1", // MTN
-    "quantity": 5,
-    "plan": "100", // Face value
-    "amount": 500, // Total to debit
-    "businessname": "Your Shop Name",
-    "requestId": "unique-id"
-  }
-  ```
-
-### Purchase Data Pin
-- **Endpoint**: `POST /api/v1/bills/data-pins`
-- **Payload**:
-  ```json
-  {
     "network": "1",
-    "quantity": 1,
-    "data_plan": "5",
+    "quantity": 5,
+    "plan": "100",
     "amount": 500,
     "businessname": "Your Shop Name",
+    "pin": "1234",
     "requestId": "unique-id"
   }
   ```
@@ -94,7 +94,8 @@ Use this to get provider IDs, plan IDs, and pricing for Pins.
 ---
 
 ## Error Codes
+- `INVALID_CREDENTIALS`: The transaction PIN provided is incorrect.
 - `INSUFFICIENT_FUNDS`: Wallet balance is too low.
 - `SERVER_ERROR`: Provider API error.
-- `VALIDATION_ERROR`: Missing or invalid fields.
+- `VALIDATION_ERROR`: Missing or invalid fields (e.g. PIN must be 4 digits).
 - `DUPLICATE_REQUEST`: Transaction with this `requestId` already exists.

@@ -35,10 +35,14 @@ export class BillService {
     providerCall: (requestId: string) => Promise<any>;
     metadata?: any;
     requestId?: string; // Client-provided idempotency key
+    pin: string; // Mandatory transaction PIN
   }) {
-    const { userId, amount, type, description, providerCall, metadata, requestId: clientRequestId } = params;
+    const { userId, amount, type, description, providerCall, metadata, requestId: clientRequestId, pin } = params;
     
-    // 1. Idempotency Check: See if this requestId already exists
+    // 1. PIN Verification
+    await this.walletService.verifyTransactionPin(userId, pin);
+
+    // 2. Idempotency Check: See if this requestId already exists
     if (clientRequestId) {
       const existingTransaction = await prisma.transaction.findUnique({
         where: { reference: clientRequestId }
@@ -156,6 +160,7 @@ export class BillService {
     network: string; 
     amount: number;
     requestId?: string;
+    pin: string;
   }) {
     return this.processPurchase({
       userId,
@@ -164,6 +169,7 @@ export class BillService {
       description: `Airtime TopUp for ${data.mobile_number}`,
       metadata: { mobile_number: data.mobile_number, network: data.network, category: "AIRTIME" },
       requestId: data.requestId,
+      pin: data.pin,
       providerCall: () => this.peyflexService.purchaseAirtime({
         network: data.network,
         mobile_number: data.mobile_number,
@@ -183,6 +189,7 @@ export class BillService {
     amount: number; 
     planName: string;
     requestId?: string;
+    pin: string;
   }) {
     return this.processPurchase({
       userId,
@@ -191,6 +198,7 @@ export class BillService {
       description: `Data Purchase (${data.planName}) for ${data.mobile_number}`,
       metadata: { mobile_number: data.mobile_number, network: data.network, plan: data.planName, category: "DATA" },
       requestId: data.requestId,
+      pin: data.pin,
       providerCall: () => this.peyflexService.purchaseData({
         network: data.network,
         mobile_number: data.mobile_number,
@@ -208,6 +216,7 @@ export class BillService {
     meter_type: "Prepaid" | "Postpaid";
     amount: number;
     requestId?: string;
+    pin: string;
   }) {
     return this.processPurchase({
       userId,
@@ -216,6 +225,7 @@ export class BillService {
       description: `Electricity Recharge for ${data.meter_number}`,
       metadata: { meter_number: data.meter_number, provider: data.provider, meter_type: data.meter_type, category: "ELECTRICITY" },
       requestId: data.requestId,
+      pin: data.pin,
       providerCall: () => this.peyflexService.purchaseElectricity({
         provider: data.provider,
         meter_number: data.meter_number,
@@ -235,6 +245,7 @@ export class BillService {
     amount: number;
     plan_name: string;
     requestId?: string;
+    pin: string;
   }) {
     return this.processPurchase({
       userId,
@@ -243,6 +254,7 @@ export class BillService {
       description: `Cable TV (${data.plan_name}) for ${data.iuc_number}`,
       metadata: { iuc_number: data.iuc_number, provider: data.provider, plan: data.plan_name, category: "CABLE_TV" },
       requestId: data.requestId,
+      pin: data.pin,
       providerCall: () => this.peyflexService.purchaseCableTv({
         provider: data.provider,
         iuc_number: data.iuc_number,
@@ -259,6 +271,7 @@ export class BillService {
     quantity: number;
     amount: number;
     requestId?: string;
+    pin: string;
   }) {
     return this.processPurchase({
       userId,
@@ -267,6 +280,7 @@ export class BillService {
       description: `Exam Pin Purchase (${data.provider}) x${data.quantity}`,
       metadata: { category: "EXAM_PIN", provider: data.provider, quantity: data.quantity },
       requestId: data.requestId,
+      pin: data.pin,
       providerCall: (requestId) => this.topupmateService.purchaseExamPin({
         provider: data.provider,
         quantity: data.quantity,
@@ -285,6 +299,7 @@ export class BillService {
     amount: number;
     businessname: string;
     requestId?: string;
+    pin: string;
   }) {
     return this.processPurchase({
       userId,
@@ -293,6 +308,7 @@ export class BillService {
       description: `Recharge Pin Purchase (${data.network}) x${data.quantity}`,
       metadata: { category: "RECHARGE_PIN", network: data.network, quantity: data.quantity, plan: data.plan },
       requestId: data.requestId,
+      pin: data.pin,
       providerCall: (requestId) => this.topupmateService.purchaseRechargePin({
         network: data.network,
         quantity: data.quantity,
@@ -313,6 +329,7 @@ export class BillService {
     amount: number;
     businessname: string;
     requestId?: string;
+    pin: string;
   }) {
     return this.processPurchase({
       userId,
@@ -321,6 +338,7 @@ export class BillService {
       description: `Data Pin Purchase (${data.network}) x${data.quantity}`,
       metadata: { category: "DATA_PIN", network: data.network, quantity: data.quantity, data_plan: data.data_plan },
       requestId: data.requestId,
+      pin: data.pin,
       providerCall: (requestId) => this.topupmateService.purchaseDataPin({
         network: data.network,
         quantity: data.quantity,

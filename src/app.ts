@@ -16,6 +16,7 @@ import userRoutes from "./modules/users/user-routes";
 import walletRoutes from "./modules/wallets/wallet-routes";
 import paymentRoutes from "./modules/payments/payment-routes";
 import billRoutes from "./modules/bills/bill-routes";
+import bankingRoutes from "./modules/banking/banking.routes";
 
 // Create Express app
 const app: Application = express();
@@ -71,6 +72,7 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/wallets", walletRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/bills", billRoutes);
+app.use("/api/v1/banking", bankingRoutes);
 
 // Error handling
 app.use(notFoundHandler);

@@ -186,4 +186,70 @@ export class WalletService {
       skip: offset,
     });
   }
+
+  /**
+   * Set Wallet Transaction PIN
+   */
+  async setTransactionPin(userId: string, pin: string) {
+    const wallet = await this.getWallet(userId);
+
+    if (wallet.pin) {
+      throw new AppError(400, "Transaction PIN is already set. Use change PIN instead.", ErrorCodes.VALIDATION_ERROR);
+    }
+
+    // Hash the PIN (reusing bcrypt)
+    const bcrypt = require("bcryptjs");
+    const hashedPin = await bcrypt.hash(pin, 10);
+
+    return await prisma.wallet.update({
+      where: { id: wallet.id },
+      data: { pin: hashedPin },
+    });
+  }
+
+  /**
+   * Change Wallet Transaction PIN
+   */
+  async changeTransactionPin(userId: string, currentPin: string, newPin: string) {
+    const wallet = await this.getWallet(userId);
+
+    if (!wallet.pin) {
+      throw new AppError(400, "Transaction PIN is not set.", ErrorCodes.VALIDATION_ERROR);
+    }
+
+    // Verify current PIN
+    const bcrypt = require("bcryptjs");
+    const isPinValid = await bcrypt.compare(currentPin, wallet.pin);
+    if (!isPinValid) {
+      throw new AppError(401, "Invalid current transaction PIN", ErrorCodes.INVALID_CREDENTIALS);
+    }
+
+    // Hash new PIN
+    const hashedPin = await bcrypt.hash(newPin, 10);
+
+    return await prisma.wallet.update({
+      where: { id: wallet.id },
+      data: { pin: hashedPin },
+    });
+  }
+
+  /**
+   * Verify Transaction PIN (Helper for billing services)
+   */
+  async verifyTransactionPin(userId: string, pin: string) {
+    const wallet = await this.getWallet(userId);
+
+    if (!wallet.pin) {
+      throw new AppError(400, "Please set a transaction PIN before performing this action.", ErrorCodes.VALIDATION_ERROR);
+    }
+
+    const bcrypt = require("bcryptjs");
+    const isPinValid = await bcrypt.compare(pin, wallet.pin);
+    
+    if (!isPinValid) {
+      throw new AppError(401, "Invalid transaction PIN", ErrorCodes.INVALID_CREDENTIALS);
+    }
+
+    return true;
+  }
 }

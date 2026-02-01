@@ -116,6 +116,7 @@ model User {
   // Relations
   refreshTokens       RefreshToken[]
   wallet              Wallet?
+  bankAccounts        BankAccount[]
   
   @@index([email])
   @@index([phone])
@@ -167,6 +168,23 @@ model VirtualAccount {
   updatedAt         DateTime    @updatedAt
 
   @@map("virtual_accounts")
+}
+
+model BankAccount {
+  id                String      @id @default(cuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  bankName          String
+  bankCode          String
+  accountNumber     String
+  accountName       String
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([userId, accountNumber, bankCode])
+  @@map("bank_accounts")
 }
 
 model Transaction {
