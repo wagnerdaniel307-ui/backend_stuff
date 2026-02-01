@@ -27,56 +27,17 @@ app.set("trust proxy", 1);
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Disable CSP temporarily to rule it out
   }),
 );
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-      ];
-      
-      // Add FRONTEND_URL from env if it exists
-      if (env.FRONTEND_URL) {
-        allowedOrigins.push(env.FRONTEND_URL);
-        // Also add version without trailing slash just in case
-        allowedOrigins.push(env.FRONTEND_URL.replace(/\/$/, ""));
-      }
-      
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
-      
-      // Exact match or includes check
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      // Pattern match for production frontend (robust check)
-      if (env.FRONTEND_URL) {
-        const normalizedFrontend = env.FRONTEND_URL.replace(/\/$/, "");
-        if (origin === normalizedFrontend || origin.startsWith(normalizedFrontend)) {
-          return callback(null, true);
-        }
-      }
-
-      // Allow all in development mode
-      if (env.NODE_ENV === "development") {
-        return callback(null, true);
-      }
-
-      // Safety fallback to prevent lockout during integration
-      return callback(null, true); 
-    },
+    origin: true, // Echoes the request origin automatically
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "X-Fingerprint", "X-App-Version"],
+    exposedHeaders: ["Set-Cookie", "Authorization"],
   }),
 );
 
@@ -90,7 +51,7 @@ app.use(compression());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 1000, // Increased for development/testing
   message: "Too many requests from this IP, please try again later",
 });
 app.use("/api/", limiter);
