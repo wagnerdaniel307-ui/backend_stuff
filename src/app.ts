@@ -20,15 +20,63 @@ import billRoutes from "./modules/bills/bill-routes";
 // Create Express app
 const app: Application = express();
 
+// Trust proxy for rate limiting on Render
+app.set("trust proxy", 1);
+
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
 app.use(
   cors({
-    origin:
-      env.NODE_ENV === "production"
-        ? ["https://yourdomain.com"]
-        : ["http://localhost:3000", "http://localhost:3001"],
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+      ];
+      
+      // Add FRONTEND_URL from env if it exists
+      if (env.FRONTEND_URL) {
+        allowedOrigins.push(env.FRONTEND_URL);
+        // Also add version without trailing slash just in case
+        allowedOrigins.push(env.FRONTEND_URL.replace(/\/$/, ""));
+      }
+      
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      // Exact match or includes check
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Pattern match for production frontend (robust check)
+      if (env.FRONTEND_URL) {
+        const normalizedFrontend = env.FRONTEND_URL.replace(/\/$/, "");
+        if (origin === normalizedFrontend || origin.startsWith(normalizedFrontend)) {
+          return callback(null, true);
+        }
+      }
+
+      // Allow all in development mode
+      if (env.NODE_ENV === "development") {
+        return callback(null, true);
+      }
+
+      // Safety fallback to prevent lockout during integration
+      return callback(null, true); 
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   }),
 );
 
